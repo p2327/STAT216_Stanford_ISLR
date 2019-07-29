@@ -1,0 +1,545 @@
+---
+title: "ISLR Chapter 3 Exercises"
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+output: html_notebook
+---
+
+# *Conceptual*
+
+# 1
+
+To test the null hypotesis (b1 = 0) we determine whether bhat1 is sufficiently far from zero by computing a t-statistic and computing the probability to observe any value equal to abs(t) or greater, assuming b1 = 0.
+
+The t-statistic measures the numbers of standard deviations that bhat1 is away from 0.
+
+p-value is the computed probability to observe values equal to abs(t), assuming b1 = 0
+
+"Large" t-values can be positive or negative, and the farther from 0 a value is the lower the probability to observe abs(t) or greater by chance.
+
+In practice, a small p-value indicates it is unlikely to observe a substantial association between the predictor and the response due to chance. 
+
+The null hypothesis is **H0:β=0** given the other variables in the model, or simply that for any coefficient β there isn’t a relationship between β and the target variable.
+
+Furthermore, each p-value in Table 3.4 corresponds to the probability of the respective coefficient being zero. Both p-values for TV and radio are low, however the on for newspaper is not. one can conclude that only TV and radio are related to sales, i.e. there is association between the predictors TV and radio and sales but not newspapers and sales.
+
+
+# 2
+
+The KNN classifier dtermines which class a new data point belongs to by assigning it to the class of higher frequency in the K-neighborhood of the point. 
+
+KNN regression's target is not a class label but rather a numerical value for f(x) given a prediction point x0. The new point value is estimated as the mean of the points in the neighborhood N0.
+
+
+# 3
+
+* *Female salary*: 85 + 20×GPA + 0.07×IQ + 0.01×GPA:IQ − 10×GPA
+
+* *Male salary*: 50 + 20×GPA + 0.07×IQ + 0.01×GPA:IQ
+
+Multiple predictors linear regression with interction terms and dummy variables for 2 level predictor (gender).
+
+With this choice of dummy variable males have β^3x0 = 0 (35x0) and β^5x0 = 0 so GPAxGender and coeff.xGender are removed from the euquation. 
+
+#### 3a
+For a fixed value of IQ and GPA, males will earn more than female when GPA is above 3.5. This is because the Female equation has the term -10xGPA, and once GPA>3.5 this will cancel the positive term given by β^3 (35).
+
+#### 3b
+```{r}
+# Female: 85 + 20×GPA + 0.07×IQ + 0.01×GPA:IQ − 10×GPA
+
+salary = 85 + 20*4.0 + 0.07*110 + 0.01*4*110 - 10*4.0
+
+salary
+```
+
+#### 3c
+False. The size of the coeefiecient is not an indication of the interaction effect per se. Rather, the p-value and relative t-statistic can tell if interacted predictor terms are significantly associated with the response.
+
+
+# 4
+
+#### 4a
+We could think the RSS to be smaller for the simple linear regression since the true f(x) is linear. Normally, a small RSS indicates a tighter fit of the model to the data.
+
+However the RSS decreases as polynomial order increases, since having more predictors normally means a tighter fit. We can observe this empirically:
+
+```{r}
+
+# training args: partition, sample size
+training <- function(p, n) {
+set.seed(1)
+x <- rnorm(n)
+y <- 5 + 2*x + rnorm(n, sd = 0.5)
+
+# fitting linear and cubic models
+lfit <- lm(y[p] ~ x[p])
+pfit <- lm(y[p] ~ x[p] + I(x[p]^2) + I(x[p]^3))
+
+# finding RSE (sigma) with summary func
+sigma_linear <- summary(lfit)$sigma
+sigma_polynomial <- summary(pfit)$sigma
+
+# finding RSS - done by summing the residuals of squares
+rss_lin <- sum(resid(lfit)^2)
+rss_pol <- sum(resid(pfit)^2)
+
+# display values
+c(linear_RSE = sigma_linear, linear_RSS = rss_lin, 
+  poly_RSE = sigma_polynomial, poly_RSS = rss_pol)
+}
+
+# using subset of data for training RSS
+training(1:20, 100)
+
+# using the remain data
+# training(20:100, 100)
+
+```
+
+If we run 1,000 simulations on the above for RSS and review the distribution with a boxplot we can see RSS is lower the higher the order of the polynomial:
+
+```{r}
+mat = matrix(rep(0,5000), nrow=1000)
+for(i in 1:1000){
+  n = 100
+  x = rnorm(n)
+  y = 5 + 2 * x + rnorm(n, 0.5)
+  for(j in 1:5){
+  # calculate RSS for the matrix (mat)  
+  mat[i,j] = sum(residuals(lm(y ~ poly(x,j,raw=T)))^2)
+  }              
+}
+
+boxplot(mat, main='RSS for increasing polynomial order',
+        xlab='Polynomial order', ylab='RSS',
+        col=(c("red","orange","gold",
+               "yellow", "lightyellow")))
+
+```
+
+#### 4b
+Refer to 4a
+
+#### 4c
+We'd expect the RSS to be lower for the cubic regression since higher order polynomial fit the data closest - higher number of predictors equals a tighter fit.
+
+# 5
+Using equation (3.4) on page 62, when xi=x(mean), then β1^=0 and β0^=y¯. The equation for yi^ evaluates to y(mean).
+
+
+
+
+
+# *Applied*
+
+# 8
+```{r message=FALSE, warning=FALSE}
+library(ISLR)
+attach(Auto)
+head(Auto)
+```
+
+Fitting a linear regression model using lm()
+```{r}
+regr.fit <- lm(mpg~horsepower, data=Auto); summary(regr.fit)
+```
+#### 8a: i-iii
+From the summary we can see a large *t-statistic* with corresponding low significant *p-value*, hence there is a relationship between predictor and response. The *coefficient* for horsepower is negative implying a decreasing relationship with mpg.
+
+#### 8a: iv
+According to our model:
+mpg = 39.9358 + (-0.1578*horsepower)
+
+Plugging the numbers:
+mpg = 39.9358 - 0.1578*98 = 24.418
+
+Using predict(): 
+```{r}
+predict(regr.fit, data.frame(horsepower = (c(98))), interval = "confidence")
+```
+
+#### 8b
+```{r}
+plot(mpg~horsepower, data=Auto, main='mpg ~ horsepower')
+abline(regr.fit, lwd=3, col='tomato')
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(regr.fit)
+```
+
+The residual data of the simple linear regression model is the difference between the observed data of the dependent variable y and the fitted values ŷ, i.e. *i-th*-residual = *i-th*(y - ŷ).
+
+Here the residuals show a pattern of no linearity. 
+Point 334 could identify an an outlier.  
+
+```{r}
+plot(regr.fit, which=1, col="cornflowerblue", pch='+')
+abline(0, 0)
+```
+
+
+
+
+**Alternative, more graphical ways to visualise residuals in-plot are possible.**
+
+##### *Step 1*
+With the model fitted, we store residuals and predicted values in two new variables:
+
+```{r message=FALSE, warning=FALSE}
+Auto.copy <- Auto # copy Auto in another df for this
+Auto.copy$predicted <- predict(regr.fit) # adds predicted to the copied df
+Auto.copy$residuals <- residuals(regr.fit)
+# initially I had Auto$predicted. For this reason I use drop in Q9 below
+
+
+# Quick look at the actual, predicted and residual values
+# install.packages("dplyr")
+library(dplyr)
+Auto.copy %>% select(mpg, predicted, residuals) %>% head()
+```
+
+##### *Step 2*
+Plot the actual and predicted values.
+
+First, plot the actual data:
+```{r message=TRUE, warning=TRUE}
+# install.packages("ggplot2")
+library(ggplot2) # using ggplot style
+ggplot(Auto.copy, aes(x=horsepower, y=mpg))+ # set up the canvas
+  geom_point() # plot the actual points
+```
+
+Next, we plot the predicted value from our regression - we want these to be distinguishable from the actuals.
+
+```{r}
+ggplot(Auto.copy, aes(x=horsepower, y=mpg))+ # set up the canvas
+  geom_point()+# plot the actual points
+  geom_point(aes(y=predicted), shape=1) # add the predicted values
+```
+
+To show how actual and predicted values are related we can connect them using *geom_segment()*:
+
+```{r}
+ggplot(Auto.copy, aes(x=horsepower, y=mpg))+ # set up the canvas
+  geom_point()+# plot the actual points
+  geom_point(aes(y=predicted), shape=1)+
+  geom_segment(aes(xend=horsepower, yend=predicted))
+```
+
+Further adjustment to:
+* Clean up the look with *theme_bw()*
+* Fade out connection lines by adjusting their *alpha*
+* Add our regression line with *geom_smooth()* 
+
+```{r}
+library(ggplot2)
+ggplot(Auto.copy, aes(x = horsepower, y = mpg))+
+  geom_smooth(method = "lm", se = FALSE, color = "lightgrey")+  # Plot regression slope
+  geom_segment(aes(xend = horsepower, yend = predicted), alpha = .2)+  # alpha to fade lines
+  geom_point()+
+  geom_point(aes(y = predicted), shape = 1)+
+  theme_bw()  # Add theme for cleaner look
+```
+
+##### *Step 3*
+Now we want to make an adjustment to highlight the size of the residuals.
+
+We can visualise the relationship between actual values and predicted with the help of colors. Using colors to highlight larger or lower values of actual and predicted helps identify non linearity in the data.
+
+For example, we can see that there is more red for extreme values of horsepower (close to lower and upper bound of the values range, i.e. < 75, > 150) indicating actual values are *greater* than what is being predicted. For centre values (75 < x < 150) we see more blue, indicating the actuals are less that what is being predicted. 
+
+```{r}
+# COLOR UNDER/OVER
+# Color mapped to residual with sign taken into account.
+# i.e., whether actual value is greater or less than predicted
+ggplot(Auto.copy, aes(x=horsepower, y=mpg))+
+  geom_smooth(method="lm", se=FALSE, color="lightgrey")+
+  geom_segment(aes(xend=horsepower, yend=predicted), alpha=.2)+
+
+  # > Color adjustments made here...
+  geom_point(aes(color=residuals))+  # Color mapped here
+  scale_color_gradient2(low="blue", mid="white", high="red")+  # Colors to use here
+  guides(color=FALSE)+ # Color legend removed
+  # <
+
+  geom_point(aes(y=predicted), shape=1)+
+  theme_bw()
+```
+
+# 9
+```{r}
+# dropping predicted and residual cols that were added earlier
+# head(Auto)
+
+drops <- c("predicted","residuals") # cols to drop
+Auto <- Auto[, !(names(Auto) %in% drops)] # re-framing 
+
+head(Auto)
+
+```
+
+#### 9a
+
+```{r}
+# plot(mpg~., data=Auto, main='mpg ~ all')
+
+pairs(Auto, pch=21) # [1:4] would select a subset of the columns
+
+# pairs(Auto[1:4], pch=21)
+# pairs(Auto[5:8])
+```
+
+#### 9a
+
+```{r}
+drops <- c("name") # dropping name as qualitative
+Auto.cor <- Auto[, !(names(Auto) %in% drops)] 
+
+
+cor(Auto.cor)
+
+# could also do
+# cor(subset(Auto, select=-name)) # applies func to all minus name
+```
+
+#### 9b
+
+```{r}
+mregr.fit <- lm(mpg~. -name, data=Auto); summary(mregr.fit)
+```
+
+#### 9a: i-iii
+
+*i.* The F-statistic is large with an associated low (significant) p-value, so we can say that overall there is relationship between the predictors and the response. 
+
+  * F-test in regression compares the fits of different linear models. Unlike t-tests that can assess only one regression coefficient at a time, the F-test can assess multiple coefficients simultaneously.
+
+  * The F-test of the overall significance is a specific form of the F-test. It compares a model with no predictors to the model that you specify. A regression model that contains no predictors is also known as an intercept-only model.
+  
+  * The hypotheses for the F-test of the overall significance are as follows:
+
+    * **Null hypothesis**: The fit of the intercept-only model and your model are equal.
+    * **Alternative hypothesis**: The fit of the intercept-only model is significantly reduced compared to your model.
+
+*** 
+If the P value for the F-test of overall significance test is less than your significance level, you can reject the null-hypothesis and conclude that your model provides a better fit than the intercept-only model
+
+***
+*ii.* Displacement, weight, year and origin have close to zero level of significance.
+
+*iii.*  The *year* coefficient is positive indicating a positive slope angle for the predictor. In practice we can infer mpg increases the newer is the car. We can observe this trend if we plot mpg regressed on year data:
+
+```{r}
+plot(mpg~year, data=Auto)
+```
+
+#### 9d
+
+Plotting the diagnostic plots with the plot() function:
+
+```{r}
+par(mfrow=c(2,2))
+plot(mregr.fit)
+```
+
+Detail for residuals and studentized residuals (leverage):
+
+```{r}
+plot(mregr.fit, which=1, col="cornflowerblue", pch='+')
+plot(mregr.fit, which=5, col="cornflowerblue", pch='+')
+abline(0, 0)
+```
+
+The *residual plot* shows outliers for points 326, 323, 327.
+
+The data seem to exhibit heteroscedasdicity (non-constant variance in the errors), whereby the magnitude of the residuals increases with the fitted values. This is indidcated visually from a funnel shape.
+
+The *leverage plot* identifies anomalous values of the independent in respect to the explained variable.
+For example we observe high leverage at index 14: the predicted mpg for the horsepower value of 225 is 18.88 however the actual mpg value is 14, hence a residual value of -4.88.
+
+Other points in the plot exhibit similar features, for example at index 6 (please refer to table below).
+
+```{r}
+mmAuto.copy <- Auto # copying the df to inspect residuals
+mmAuto.copy$predicted <- predict(mregr.fit)  # adding columns
+mmAuto.copy$residuals <- residuals(mregr.fit)
+
+mmAuto.copy %>% select(horsepower, mpg, predicted, residuals) %>% head(20)
+# mmAuto.copy[14, ] # shows only row at index 14 (the identified leverage point)
+```
+
+#### 9e
+
+Selecting 4 predictors and regressing on each plus interactions.
+
+```{r}
+iregr.fit_a <- lm(mpg ~ weight +displacement +year +origin
+                -name -acceleration,
+                data=Auto)
+iregr.fit_a1 <- lm(mpg ~ weight*displacement +year +origin
+                -name -acceleration,
+                data=Auto)
+iregr.fit_a2 <- lm(mpg ~  +weight +displacement +year*origin
+                 -name -acceleration, 
+                 data=Auto)
+
+summary(iregr.fit_a)
+summary(iregr.fit_a1)
+summary(iregr.fit_a2)
+```
+
+```{r}
+iregr.fit_b <- lm(mpg ~ horsepower +cylinders +weight +displacement 
+                  -name -acceleration,
+                  data=Auto)
+iregr.fit_b1 <- lm(mpg ~ horsepower*cylinders +weight +displacement 
+                   -name -acceleration,
+                   data=Auto)
+iregr.fit_b2 <- lm(mpg ~ horsepower +cylinders +weight*displacement 
+                   -name -acceleration,
+                   data=Auto)
+
+summary(iregr.fit_b)
+summary(iregr.fit_b1)
+summary(iregr.fit_b2)
+```
+
+#### 9f
+
+Trying log, square root and quadratic transformations for horsepower.
+
+```{r}
+regr.fit_poly2 <- lm(mpg ~ horsepower +I(horsepower^2)
+                     +weight +year,data=Auto)
+regr.fit_poly3 <- lm(mpg ~ poly(horsepower, 3) # using poly includes 1,2,3 deg
+                     +weight +year, data=Auto) 
+regr.fit_log <- lm(mpg ~ horsepower +I(log(horsepower)) 
+                   +weight +year, data=Auto) 
+regr.fit_sqrt <- lm(mpg ~ horsepower +I(sqrt(horsepower))
+                    +weight +year, data=Auto)
+
+summary(regr.fit_poly2)
+summary(regr.fit_poly3)
+summary(regr.fit_sqrt)
+summary(regr.fit_log)
+```
+
+# 10
+
+```{r}
+attach(Carseats)
+head(Carseats)
+```
+
+```{r}
+fit.lm <- lm(Sales ~ Price +Urban +US,
+             data=Carseats)
+summary(fit.lm)
+```
+
+Parameters
+* Sales: sales in thousands at each location 
+* Price: price charged for car seats at each location 
+* Urban: No/Yes by location 
+* US: No/Yes by location
+
+Coefficients comments
+
+* Price (-0.054459): Sales drop by 54 for each dollar increase in Price - statistically significant
+* UrbanYes (-0.021916): Sales are 22 lower for Urban locations - not statistically significant
+* USYes (1.200573): Sales are 1,201 higher in the US locations - statistically significant
+
+#### 10b
+
+Sales = 13.043 - 0.054 x Price - 0.022 x UrbanYes + 1.201 x USYes
+```{r}
+# Sales: 13.043 - 0.054×Price + 0.022×UrbanYes + 1.201×USYes
+```
+
+#### 10c
+
+We can reject the null hypotesis for Price and USYes (low p-values).
+
+#### 10d
+
+```{r}
+fit.lm1 <- lm(Sales ~ Price +US,
+              data=Carseats)
+summary(fit.lm1)
+```
+
+```{r message=TRUE, warning=TRUE}
+# install.packages("plotly")
+library(plotly)
+
+Carseats$US[which(Carseats$US == 0)] <- 'Yes'
+Carseats$US[which(Carseats$US == 1)] <- 'No'
+Carseats$US <- as.factor(Carseats$US)
+
+p <- plot_ly(Carseats, x = ~Price, y = ~Advertising, z = ~Sales, color = ~US,
+             colors = c('#BF382A', '#0C4B8E')) %>%
+  
+  add_markers() %>%
+  
+  layout(scene = list(xaxis = list(title = 'Price'),
+                     yaxis = list(title = 'Advertising'),
+                     zaxis = list(title = 'Sales')))
+
+p
+```
+
+
+
+#### 10f
+
+* fit.lm (Price, Urban, US): RSE = 2.472 R^2 = 0.2393
+* fit.lm1 (Price, US): RSE = 2.469 R^2 = 0.2393
+
+fit.lm1 has a slightly better (lower) RSE value and one less predictor variable.
+
+#### 10g
+
+```{r}
+confint(fit.lm1)
+```
+
+#### 10h
+```{r}
+par(mfrow=c(2,2))
+# residuals v fitted plot doesn't show strong outliers
+plot(fit.lm1) 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
