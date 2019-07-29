@@ -191,7 +191,7 @@ abline(0, 0)
 ##### *Step 1*
 With the model fitted, we store residuals and predicted values in two new variables:
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 Auto.copy <- Auto # copy Auto in another df for this
 Auto.copy$predicted <- predict(regr.fit) # adds predicted to the copied df
 Auto.copy$residuals <- residuals(regr.fit)
@@ -208,7 +208,7 @@ Auto.copy %>% select(mpg, predicted, residuals) %>% head()
 Plot the actual and predicted values.
 
 First, plot the actual data:
-```{r}
+```{r message=TRUE, warning=TRUE}
 # install.packages("ggplot2")
 library(ggplot2) # using ggplot style
 ggplot(Auto.copy, aes(x=horsepower, y=mpg))+ # set up the canvas
@@ -474,7 +474,7 @@ fit.lm1 <- lm(Sales ~ Price +US,
 summary(fit.lm1)
 ```
 
-```{r}
+```{r message=TRUE, warning=TRUE}
 # install.packages("plotly")
 library(plotly)
 
